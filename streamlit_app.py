@@ -245,25 +245,6 @@ def main():
         st.error(f"Error loading spreadsheets configuration: {e}")
         spreadsheets_config = []
     
-    # Display current configuration
-    st.header("Current Spreadsheets Configuration")
-    if spreadsheets_config:
-        for i, (spreadsheet_id, sheet_name) in enumerate(spreadsheets_config):
-            col1, col2, col3 = st.columns([2, 2, 1])
-            with col1:
-                st.text_input(f"Spreadsheet ID {i+1}", spreadsheet_id, key=f"spreadsheet_id_{i}")
-            with col2:
-                st.text_input(f"Sheet Name {i+1}", sheet_name, key=f"sheet_name_{i}")
-            with col3:
-                if st.button("🗑️", key=f"delete_{i}"):
-                    spreadsheets_config.pop(i)
-                    with open('spreadsheets_config.json', 'w') as f:
-                        json.dump({'spreadsheets': spreadsheets_config}, f, indent=2)
-                    st.success("Spreadsheet removed successfully!")
-                    st.rerun()
-    else:
-        st.warning("No spreadsheets configured")
-    
     # Add new spreadsheet
     st.header("Add New Spreadsheet")
     new_spreadsheet_id = st.text_input("New Spreadsheet ID")
@@ -288,6 +269,25 @@ def main():
                     st.dataframe(result_df)
         else:
             st.error("No spreadsheets configured. Please add at least one spreadsheet.")
+    
+    # Display current configuration
+    st.header("Current Spreadsheets Configuration")
+    if spreadsheets_config:
+        for i, (spreadsheet_id, sheet_name) in enumerate(spreadsheets_config):
+            col1, col2, col3 = st.columns([2, 2, 1])
+            with col1:
+                st.text_input(f"Spreadsheet ID {i+1}", spreadsheet_id, key=f"spreadsheet_id_{i}")
+            with col2:
+                st.text_input(f"Sheet Name {i+1}", sheet_name, key=f"sheet_name_{i}")
+            with col3:
+                if st.button("🗑️", key=f"delete_{i}"):
+                    spreadsheets_config.pop(i)
+                    with open('spreadsheets_config.json', 'w') as f:
+                        json.dump({'spreadsheets': spreadsheets_config}, f, indent=2)
+                    st.success("Spreadsheet removed successfully!")
+                    st.rerun()
+    else:
+        st.warning("No spreadsheets configured")
 
 if __name__ == "__main__":
     main() 
