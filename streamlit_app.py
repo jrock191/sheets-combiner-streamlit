@@ -245,15 +245,17 @@ def main():
         st.error(f"Error loading spreadsheets configuration: {e}")
         spreadsheets_config = []
     
-    # Combine data button
-    if st.button("Combine Data", type="primary", use_container_width=True):
-        if spreadsheets_config:
-            with st.spinner("Combining data from spreadsheets..."):
-                result_df = combine_and_save_data(spreadsheets_config)
-                if result_df is not False:
-                    st.dataframe(result_df)
-        else:
-            st.error("No spreadsheets configured. Please add at least one spreadsheet.")
+    # Combine data button in a centered column
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col2:
+        if st.button("Combine Data", type="primary", use_container_width=True):
+            if spreadsheets_config:
+                with st.spinner("Combining data from spreadsheets..."):
+                    result_df = combine_and_save_data(spreadsheets_config)
+                    if result_df is not False:
+                        st.dataframe(result_df)
+            else:
+                st.error("No spreadsheets configured. Please add at least one spreadsheet.")
     
     st.markdown("---")  # Add a separator
     
