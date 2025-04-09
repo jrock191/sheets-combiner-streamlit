@@ -260,7 +260,7 @@ def main():
                     with open('spreadsheets_config.json', 'w') as f:
                         json.dump({'spreadsheets': spreadsheets_config}, f, indent=2)
                     st.success("Spreadsheet removed successfully!")
-                    st.experimental_rerun()
+                    st.rerun()
     else:
         st.warning("No spreadsheets configured")
     
@@ -275,7 +275,7 @@ def main():
             with open('spreadsheets_config.json', 'w') as f:
                 json.dump({'spreadsheets': spreadsheets_config}, f, indent=2)
             st.success("Spreadsheet added successfully!")
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.error("Please provide both Spreadsheet ID and Sheet Name")
     
