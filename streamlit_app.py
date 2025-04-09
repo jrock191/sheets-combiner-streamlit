@@ -249,11 +249,18 @@ def main():
     st.header("Current Spreadsheets Configuration")
     if spreadsheets_config:
         for i, (spreadsheet_id, sheet_name) in enumerate(spreadsheets_config):
-            col1, col2 = st.columns(2)
+            col1, col2, col3 = st.columns([2, 2, 1])
             with col1:
                 st.text_input(f"Spreadsheet ID {i+1}", spreadsheet_id, key=f"spreadsheet_id_{i}")
             with col2:
                 st.text_input(f"Sheet Name {i+1}", sheet_name, key=f"sheet_name_{i}")
+            with col3:
+                if st.button("🗑️", key=f"delete_{i}"):
+                    spreadsheets_config.pop(i)
+                    with open('spreadsheets_config.json', 'w') as f:
+                        json.dump({'spreadsheets': spreadsheets_config}, f, indent=2)
+                    st.success("Spreadsheet removed successfully!")
+                    st.experimental_rerun()
     else:
         st.warning("No spreadsheets configured")
     
