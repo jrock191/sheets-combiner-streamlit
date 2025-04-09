@@ -239,7 +239,8 @@ def main():
     # Load spreadsheets configuration
     try:
         with open('spreadsheets_config.json', 'r') as f:
-            spreadsheets_config = json.load(f)
+            config_data = json.load(f)
+            spreadsheets_config = config_data.get('spreadsheets', [])
     except Exception as e:
         st.error(f"Error loading spreadsheets configuration: {e}")
         spreadsheets_config = []
@@ -265,7 +266,7 @@ def main():
         if new_spreadsheet_id and new_sheet_name:
             spreadsheets_config.append([new_spreadsheet_id, new_sheet_name])
             with open('spreadsheets_config.json', 'w') as f:
-                json.dump(spreadsheets_config, f, indent=2)
+                json.dump({'spreadsheets': spreadsheets_config}, f, indent=2)
             st.success("Spreadsheet added successfully!")
             st.experimental_rerun()
         else:
