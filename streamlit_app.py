@@ -12,6 +12,64 @@ OUTPUT_CSV_BASE_NAME = 'combined_requests'
 TRACKING_DATA_FILE = 'sheets_tracking_app.json'
 TRACK_CHANGES = True
 FORCE_REFRESH = False
+CONFIG_DIR = 'user_configs'
+
+def ensure_user_config_dir():
+    """Ensure the user configuration directory exists"""
+    if not os.path.exists(CONFIG_DIR):
+        os.makedirs(CONFIG_DIR)
+
+def get_user_config_path(username):
+    """Get the path to a user's configuration file"""
+    return os.path.join(CONFIG_DIR, f'{username}_config.json')
+
+def load_user_config(username):
+    """Load configuration for a specific user"""
+    config_path = get_user_config_path(username)
+    try:
+        if os.path.exists(config_path):
+            with open(config_path, 'r') as f:
+                return json.load(f)
+    except Exception as e:
+        st.error(f"Error loading user configuration: {e}")
+    return {'spreadsheets': []}
+
+def save_user_config(username, config):
+    """Save configuration for a specific user"""
+    config_path = get_user_config_path(username)
+    try:
+        with open(config_path, 'w') as f:
+            json.dump(config, f, indent=2)
+        return True
+    except Exception as e:
+        st.error(f"Error saving user configuration: {e}")
+        return False
+
+def initialize_session_state():
+    """Initialize session state variables"""
+    if 'username' not in st.session_state:
+        st.session_state.username = None
+    if 'authenticated' not in st.session_state:
+        st.session_state.authenticated = False
+
+def login_page():
+    """Display login page"""
+    st.title("📊 Google Sheets Combiner")
+    
+    with st.form("login_form"):
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+        submit = st.form_submit_button("Login")
+        
+        if submit:
+            # In a real application, you would validate against a database
+            # For this example, we'll use a simple check
+            if username and password:  # Replace with proper authentication
+                st.session_state.username = username
+                st.session_state.authenticated = True
+                st.rerun()
+            else:
+                st.error("Please enter both username and password")
 
 def get_output_csv_path():
     """Generate output CSV path with timestamp to ensure uniqueness"""
@@ -234,16 +292,31 @@ def main():
         layout="wide"
     )
     
+    # Initialize session state
+    initialize_session_state()
+    
+    # Ensure user config directory exists
+    ensure_user_config_dir()
+    
+    # Check if user is authenticated
+    if not st.session_state.authenticated:
+        login_page()
+        return
+    
     st.title("📊 Google Sheets Combiner")
     
-    # Load spreadsheets configuration
-    try:
-        with open('spreadsheets_config.json', 'r') as f:
-            config_data = json.load(f)
-            spreadsheets_config = config_data.get('spreadsheets', [])
-    except Exception as e:
-        st.error(f"Error loading spreadsheets configuration: {e}")
-        spreadsheets_config = []
+    # Add logout button
+    if st.sidebar.button("Logout"):
+        st.session_state.authenticated = False
+        st.session_state.username = None
+        st.rerun()
+    
+    # Display current user
+    st.sidebar.write(f"Logged in as: {st.session_state.username}")
+    
+    # Load user-specific configuration
+    user_config = load_user_config(st.session_state.username)
+    spreadsheets_config = user_config.get('spreadsheets', [])
     
     # Combine data button in a centered column
     col1, col2, col3 = st.columns([1, 1, 1])
@@ -267,10 +340,9 @@ def main():
     if st.button("Add Spreadsheet"):
         if new_spreadsheet_id and new_sheet_name:
             spreadsheets_config.append([new_spreadsheet_id, new_sheet_name])
-            with open('spreadsheets_config.json', 'w') as f:
-                json.dump({'spreadsheets': spreadsheets_config}, f, indent=2)
-            st.success("Spreadsheet added successfully!")
-            st.rerun()
+            if save_user_config(st.session_state.username, {'spreadsheets': spreadsheets_config}):
+                st.success("Spreadsheet added successfully!")
+                st.rerun()
         else:
             st.error("Please provide both Spreadsheet ID and Sheet Name")
     
@@ -288,10 +360,9 @@ def main():
             with col3:
                 if st.button("🗑️", key=f"delete_{i}"):
                     spreadsheets_config.pop(i)
-                    with open('spreadsheets_config.json', 'w') as f:
-                        json.dump({'spreadsheets': spreadsheets_config}, f, indent=2)
-                    st.success("Spreadsheet removed successfully!")
-                    st.rerun()
+                    if save_user_config(st.session_state.username, {'spreadsheets': spreadsheets_config}):
+                        st.success("Spreadsheet removed successfully!")
+                        st.rerun()
     else:
         st.warning("No spreadsheets configured")
 
