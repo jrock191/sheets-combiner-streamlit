@@ -252,35 +252,42 @@ def update_sheet_status(service, spreadsheet_id, sheet_name, df):
             return
         
         headers = values[0]
-        status_col_index = 0  # Assuming status is always in column A
         
         # Create a batch update request
         batch_update_request = {
-            'valueInputOption': 'RAW',
+            'valueInputOption': 'USER_ENTERED',  # Changed from RAW to USER_ENTERED
             'data': []
         }
         
-        # For each row in our filtered DataFrame
-        for _, row in df.iterrows():
-            # Find matching row in the original sheet
-            for i, sheet_row in enumerate(values[1:], start=1):  # Skip header row
-                if len(sheet_row) > 1:  # Ensure row has enough columns
-                    # Match based on content in column B (index 1)
-                    if sheet_row[1] == row[headers[1]]:
-                        # Add to batch update
-                        batch_update_request['data'].append({
-                            'range': f'{sheet_name}!A{i+1}',  # +1 for 1-based indexing
-                            'values': [['Submitted / In Progress']]
-                        })
+        # For each row in the original sheet
+        for i, sheet_row in enumerate(values[1:], start=1):  # Skip header row
+            if len(sheet_row) > 1:  # Ensure row has enough columns
+                # Check if this row has "New Request" in column A
+                if sheet_row[0] == "New Request":
+                    # Check if this row's content matches any row in our filtered DataFrame
+                    for _, df_row in df.iterrows():
+                        # Match based on content in column B
+                        if sheet_row[1] == df_row[headers[1]]:
+                            # Add to batch update
+                            batch_update_request['data'].append({
+                                'range': f'{sheet_name}!A{i+1}',  # +1 for 1-based indexing
+                                'values': [['Submitted / In Progress']]
+                            })
+                            break  # Found a match, move to next sheet row
         
+        # Only make the API call if we have updates to make
         if batch_update_request['data']:
-            service.spreadsheets().values().batchUpdate(
-                spreadsheetId=spreadsheet_id,
-                body=batch_update_request
-            ).execute()
+            try:
+                service.spreadsheets().values().batchUpdate(
+                    spreadsheetId=spreadsheet_id,
+                    body=batch_update_request
+                ).execute()
+                st.success(f"Updated {len(batch_update_request['data'])} rows in {sheet_name}")
+            except Exception as e:
+                st.error(f"Failed to update status in sheet {sheet_name}: {str(e)}")
             
     except Exception as e:
-        st.error(f"Error updating sheet status: {e}")
+        st.error(f"Error updating sheet status: {str(e)}")
 
 def combine_and_save_data(spreadsheets_config):
     """Download data from multiple spreadsheets and combine into one CSV"""
