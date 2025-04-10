@@ -51,6 +51,10 @@ def initialize_session_state():
         st.session_state.username = None
     if 'authenticated' not in st.session_state:
         st.session_state.authenticated = False
+    if 'new_spreadsheet_id' not in st.session_state:
+        st.session_state.new_spreadsheet_id = ""
+    if 'new_sheet_name' not in st.session_state:
+        st.session_state.new_sheet_name = ""
 
 def login_page():
     """Display login page"""
@@ -334,14 +338,15 @@ def main():
     
     # Add new spreadsheet
     st.header("Add New Spreadsheet")
-    new_spreadsheet_id = st.text_input("New Spreadsheet ID")
-    new_sheet_name = st.text_input("New Sheet Name")
+    new_spreadsheet_id = st.text_input("New Spreadsheet ID", key="new_spreadsheet_id")
+    new_sheet_name = st.text_input("New Sheet Name", key="new_sheet_name")
     
     if st.button("Add Spreadsheet"):
         if new_spreadsheet_id and new_sheet_name:
             spreadsheets_config.append([new_spreadsheet_id, new_sheet_name])
             if save_user_config(st.session_state.username, {'spreadsheets': spreadsheets_config}):
                 st.success("Spreadsheet added successfully!")
+                clear_input_fields()
                 st.rerun()
         else:
             st.error("Please provide both Spreadsheet ID and Sheet Name")
@@ -365,6 +370,11 @@ def main():
                         st.rerun()
     else:
         st.warning("No spreadsheets configured")
+
+def clear_input_fields():
+    """Clear the input fields"""
+    st.session_state.new_spreadsheet_id = ""
+    st.session_state.new_sheet_name = ""
 
 if __name__ == "__main__":
     main() 
