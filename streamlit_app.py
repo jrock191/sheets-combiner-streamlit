@@ -143,11 +143,10 @@ def download_sheet_data(service, spreadsheet_id, sheet_name, tracking_data):
     """Download data from a specific Google Sheet tab"""
     try:
         if FORCE_REFRESH:
-            st.info(f"Force refresh enabled - downloading all data from {sheet_name}")
+            pass  # Removed info message
         else:
             metadata = get_sheet_metadata(service, spreadsheet_id, sheet_name)
             if metadata is None:
-                st.error(f"Could not get metadata for spreadsheet {spreadsheet_id}, sheet {sheet_name}")
                 return None
             
             sheet_key = f"{spreadsheet_id}_{sheet_name}"
@@ -157,13 +156,8 @@ def download_sheet_data(service, spreadsheet_id, sheet_name, tracking_data):
             row_count_changed = metadata['row_count'] != previous_metadata.get('row_count', 0)
             modified_time_changed = metadata['modified_time'] != previous_metadata.get('modified_time', '')
             
-            if row_count_changed:
-                st.info(f"Row count changed from {previous_metadata.get('row_count', 0)} to {metadata['row_count']} in {sheet_name}")
-            if modified_time_changed:
-                st.info(f"Last modified time changed in {sheet_name}")
-                
             if TRACK_CHANGES and not row_count_changed and not modified_time_changed:
-                st.info(f"No metadata changes detected in {sheet_name} - checking content anyway")
+                pass  # Removed info message
         
         result = service.spreadsheets().values().get(
             spreadsheetId=spreadsheet_id,
@@ -173,7 +167,6 @@ def download_sheet_data(service, spreadsheet_id, sheet_name, tracking_data):
         values = result.get('values', [])
         
         if not values:
-            st.warning(f'No data found in spreadsheet {spreadsheet_id}, sheet {sheet_name}.')
             return None
         
         headers = values[0]
@@ -199,20 +192,14 @@ def download_sheet_data(service, spreadsheet_id, sheet_name, tracking_data):
                     
             filtered_row_count = len(filtered_df)
             
-            st.info(f"Filtered from {len(df)} to {filtered_row_count} rows where column A = 'New Request' and column B is not empty in {sheet_name}")
-            
             if filtered_row_count == 0:
-                st.warning(f"No rows match the filter criteria in {sheet_name}")
                 return None
             
             df = filtered_df
         else:
-            st.error(f"Warning: Spreadsheet {spreadsheet_id}, sheet {sheet_name} doesn't have enough columns. Skipping.")
             return None
         
         if FORCE_REFRESH or not TRACK_CHANGES:
-            st.success(f"Downloaded {len(df)} valid rows from spreadsheet {spreadsheet_id}, sheet {sheet_name}")
-            
             sheet_key = f"{spreadsheet_id}_{sheet_name}"
             metadata = get_sheet_metadata(service, spreadsheet_id, sheet_name) if FORCE_REFRESH else metadata
             
@@ -228,14 +215,10 @@ def download_sheet_data(service, spreadsheet_id, sheet_name, tracking_data):
         sheet_key = f"{spreadsheet_id}_{sheet_name}"
         
         if current_content_hash == previous_content_hash:
-            st.info(f"Content is identical to previous run for {sheet_name} after filtering - skipping")
-            
             tracking_data['sheets_data'][sheet_key]['metadata'] = metadata
             tracking_data['sheets_data'][sheet_key]['last_checked'] = datetime.now().isoformat()
             
             return None
-        
-        st.info(f"Content has changed in {sheet_name}")
         
         tracking_data['sheets_data'][sheet_key] = {
             'metadata': metadata,
@@ -243,20 +226,17 @@ def download_sheet_data(service, spreadsheet_id, sheet_name, tracking_data):
             'last_processed': datetime.now().isoformat()
         }
         
-        st.success(f"Downloaded {len(df)} new or changed rows from spreadsheet {spreadsheet_id}, sheet {sheet_name}")
         return df
     
     except HttpError as error:
-        st.error(f"Google Sheets API error: {error}")
+        st.error(f"Error accessing spreadsheet: {error}")
         return None
     except Exception as e:
-        st.error(f"Error downloading sheet: {e}")
+        st.error(f"Error processing spreadsheet: {e}")
         return None
 
 def combine_and_save_data(spreadsheets_config):
     """Download data from multiple spreadsheets and combine into one CSV"""
-    st.info(f"Starting data download at {datetime.now()}")
-    
     output_csv_path = get_output_csv_path()
     tracking_data = load_tracking_data()
     tracking_data['last_run'] = datetime.now().isoformat()
@@ -275,7 +255,7 @@ def combine_and_save_data(spreadsheets_config):
             all_dfs.append(df)
     
     if not all_dfs:
-        st.warning("No new data was downloaded from any spreadsheet.")
+        st.warning("No new data was found to combine.")
         save_tracking_data(tracking_data)
         return False
     
@@ -283,8 +263,6 @@ def combine_and_save_data(spreadsheets_config):
     
     # Save to CSV
     combined_df.to_csv(output_csv_path, index=False)
-    st.success(f"Successfully combined {len(combined_df)} rows from {len(all_dfs)} sheets into {output_csv_path}")
-    
     save_tracking_data(tracking_data)
     
     return combined_df
@@ -327,9 +305,10 @@ def main():
     with col2:
         if st.button("Combine Data", type="primary", use_container_width=True):
             if spreadsheets_config:
-                with st.spinner("Combining data from spreadsheets..."):
+                with st.spinner("Combining data from spreadsheets... This may take a moment."):
                     result_df = combine_and_save_data(spreadsheets_config)
                     if result_df is not False:
+                        st.success("✅ Data combined successfully!")
                         st.dataframe(result_df)
             else:
                 st.error("No spreadsheets configured. Please add at least one spreadsheet.")
