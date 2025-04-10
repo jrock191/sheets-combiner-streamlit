@@ -86,7 +86,10 @@ def setup_google_sheets_api():
         # For Streamlit Cloud, we'll use the credentials from secrets
         creds = service_account.Credentials.from_service_account_info(
             st.secrets["gcp_service_account"],
-            scopes=['https://www.googleapis.com/auth/spreadsheets.readonly']
+            scopes=[
+                'https://www.googleapis.com/auth/spreadsheets.readonly',
+                'https://www.googleapis.com/auth/spreadsheets'  # Add write permission
+            ]
         )
         service = build('sheets', 'v4', credentials=creds)
         return service
@@ -235,6 +238,50 @@ def download_sheet_data(service, spreadsheet_id, sheet_name, tracking_data):
         st.error(f"Error processing spreadsheet: {e}")
         return None
 
+def update_sheet_status(service, spreadsheet_id, sheet_name, df):
+    """Update the status of processed rows in the source sheet"""
+    try:
+        # Get the full sheet data to find row indices
+        result = service.spreadsheets().values().get(
+            spreadsheetId=spreadsheet_id,
+            range=sheet_name
+        ).execute()
+        
+        values = result.get('values', [])
+        if not values:
+            return
+        
+        headers = values[0]
+        status_col_index = 0  # Assuming status is always in column A
+        
+        # Create a batch update request
+        batch_update_request = {
+            'valueInputOption': 'RAW',
+            'data': []
+        }
+        
+        # For each row in our filtered DataFrame
+        for _, row in df.iterrows():
+            # Find matching row in the original sheet
+            for i, sheet_row in enumerate(values[1:], start=1):  # Skip header row
+                if len(sheet_row) > 1:  # Ensure row has enough columns
+                    # Match based on content in column B (index 1)
+                    if sheet_row[1] == row[headers[1]]:
+                        # Add to batch update
+                        batch_update_request['data'].append({
+                            'range': f'{sheet_name}!A{i+1}',  # +1 for 1-based indexing
+                            'values': [['Submitted / In Progress']]
+                        })
+        
+        if batch_update_request['data']:
+            service.spreadsheets().values().batchUpdate(
+                spreadsheetId=spreadsheet_id,
+                body=batch_update_request
+            ).execute()
+            
+    except Exception as e:
+        st.error(f"Error updating sheet status: {e}")
+
 def combine_and_save_data(spreadsheets_config):
     """Download data from multiple spreadsheets and combine into one CSV"""
     output_csv_path = get_output_csv_path()
@@ -246,6 +293,7 @@ def combine_and_save_data(spreadsheets_config):
         return False
     
     all_dfs = []
+    sheet_data = []  # Store sheet info for status updates
     
     for spreadsheet_info in spreadsheets_config:
         spreadsheet_id, sheet_name = spreadsheet_info
@@ -253,6 +301,11 @@ def combine_and_save_data(spreadsheets_config):
         df = download_sheet_data(service, spreadsheet_id, sheet_name, tracking_data)
         if df is not None and not df.empty:
             all_dfs.append(df)
+            sheet_data.append({
+                'spreadsheet_id': spreadsheet_id,
+                'sheet_name': sheet_name,
+                'df': df
+            })
     
     if not all_dfs:
         st.warning("No new data was found to combine.")
@@ -264,6 +317,16 @@ def combine_and_save_data(spreadsheets_config):
     # Save to CSV
     combined_df.to_csv(output_csv_path, index=False)
     save_tracking_data(tracking_data)
+    
+    # Update status in source sheets
+    with st.spinner("Updating source sheets..."):
+        for sheet_info in sheet_data:
+            update_sheet_status(
+                service,
+                sheet_info['spreadsheet_id'],
+                sheet_info['sheet_name'],
+                sheet_info['df']
+            )
     
     return combined_df
 
