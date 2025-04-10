@@ -341,15 +341,8 @@ def main():
     new_spreadsheet_id = st.text_input("New Spreadsheet ID", key="new_spreadsheet_id")
     new_sheet_name = st.text_input("New Sheet Name", key="new_sheet_name")
     
-    if st.button("Add Spreadsheet"):
-        if new_spreadsheet_id and new_sheet_name:
-            spreadsheets_config.append([new_spreadsheet_id, new_sheet_name])
-            if save_user_config(st.session_state.username, {'spreadsheets': spreadsheets_config}):
-                st.success("Spreadsheet added successfully!")
-                clear_input_fields()
-                st.rerun()
-        else:
-            st.error("Please provide both Spreadsheet ID and Sheet Name")
+    if st.button("Add Spreadsheet", on_click=add_spreadsheet):
+        pass  # The actual logic is handled in the callback
     
     st.markdown("---")  # Add a separator
     
@@ -375,6 +368,18 @@ def clear_input_fields():
     """Clear the input fields"""
     st.session_state.new_spreadsheet_id = ""
     st.session_state.new_sheet_name = ""
+
+def add_spreadsheet():
+    """Add a new spreadsheet and clear input fields"""
+    if st.session_state.new_spreadsheet_id and st.session_state.new_sheet_name:
+        spreadsheets_config = load_user_config(st.session_state.username).get('spreadsheets', [])
+        spreadsheets_config.append([st.session_state.new_spreadsheet_id, st.session_state.new_sheet_name])
+        if save_user_config(st.session_state.username, {'spreadsheets': spreadsheets_config}):
+            clear_input_fields()
+            st.success("Spreadsheet added successfully!")
+            st.rerun()
+    else:
+        st.error("Please provide both Spreadsheet ID and Sheet Name")
 
 if __name__ == "__main__":
     main() 
