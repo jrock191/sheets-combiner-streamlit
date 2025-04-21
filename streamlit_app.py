@@ -55,25 +55,69 @@ def initialize_session_state():
         st.session_state.new_spreadsheet_id = ""
     if 'new_sheet_name' not in st.session_state:
         st.session_state.new_sheet_name = ""
+    if 'show_success' not in st.session_state:
+        st.session_state.show_success = False
+    if 'success_message' not in st.session_state:
+        st.session_state.success_message = ""
+    if 'show_error' not in st.session_state:
+        st.session_state.show_error = False
+    if 'error_message' not in st.session_state:
+        st.session_state.error_message = ""
+
+def handle_login():
+    """Handle login form submission"""
+    username = st.session_state.username_input
+    password = st.session_state.password_input
+    if username and password:
+        st.session_state.username = username
+        st.session_state.authenticated = True
+    else:
+        st.session_state.error_message = "Please enter both username and password"
+        st.session_state.show_error = True
+
+def handle_logout():
+    """Handle logout button click"""
+    st.session_state.username = None
+    st.session_state.authenticated = False
+    st.session_state.new_spreadsheet_id = ""
+    st.session_state.new_sheet_name = ""
+
+def handle_add_spreadsheet():
+    """Handle adding a new spreadsheet"""
+    if st.session_state.new_spreadsheet_id and st.session_state.new_sheet_name:
+        spreadsheets_config = load_user_config(st.session_state.username).get('spreadsheets', [])
+        spreadsheets_config.append([st.session_state.new_spreadsheet_id, st.session_state.new_sheet_name])
+        if save_user_config(st.session_state.username, {'spreadsheets': spreadsheets_config}):
+            st.session_state.new_spreadsheet_id = ""
+            st.session_state.new_sheet_name = ""
+            st.session_state.show_success = True
+            st.session_state.success_message = "Spreadsheet added successfully!"
+        else:
+            st.session_state.show_error = True
+            st.session_state.error_message = "Failed to save spreadsheet configuration"
+    else:
+        st.session_state.show_error = True
+        st.session_state.error_message = "Please provide both Spreadsheet ID and Sheet Name"
+
+def handle_delete_spreadsheet(index):
+    """Handle deleting a spreadsheet"""
+    spreadsheets_config = load_user_config(st.session_state.username).get('spreadsheets', [])
+    spreadsheets_config.pop(index)
+    if save_user_config(st.session_state.username, {'spreadsheets': spreadsheets_config}):
+        st.session_state.show_success = True
+        st.session_state.success_message = "Spreadsheet removed successfully!"
+    else:
+        st.session_state.show_error = True
+        st.session_state.error_message = "Failed to remove spreadsheet"
 
 def login_page():
     """Display login page"""
     st.title("📊 Google Sheets Combiner")
     
     with st.form("login_form"):
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
-        submit = st.form_submit_button("Login")
-        
-        if submit:
-            # In a real application, you would validate against a database
-            # For this example, we'll use a simple check
-            if username and password:  # Replace with proper authentication
-                st.session_state.username = username
-                st.session_state.authenticated = True
-                st.rerun()
-            else:
-                st.error("Please enter both username and password")
+        st.text_input("Username", key="username_input")
+        st.text_input("Password", type="password", key="password_input")
+        submit = st.form_submit_button("Login", on_click=handle_login)
 
 def get_output_csv_path():
     """Generate output CSV path with timestamp to ensure uniqueness"""
@@ -353,18 +397,27 @@ def main():
     # Check if user is authenticated
     if not st.session_state.authenticated:
         login_page()
+        if st.session_state.show_error:
+            st.error(st.session_state.error_message)
+            st.session_state.show_error = False
         return
     
     st.title("📊 Google Sheets Combiner")
     
     # Add logout button
-    if st.sidebar.button("Logout"):
-        st.session_state.authenticated = False
-        st.session_state.username = None
-        st.rerun()
+    if st.sidebar.button("Logout", on_click=handle_logout):
+        return
     
     # Display current user
     st.sidebar.write(f"Logged in as: {st.session_state.username}")
+    
+    # Show success/error messages if any
+    if st.session_state.show_success:
+        st.success(st.session_state.success_message)
+        st.session_state.show_success = False
+    if st.session_state.show_error:
+        st.error(st.session_state.error_message)
+        st.session_state.show_error = False
     
     # Load user-specific configuration
     user_config = load_user_config(st.session_state.username)
@@ -387,11 +440,11 @@ def main():
     
     # Add new spreadsheet
     st.header("Add New Spreadsheet")
-    new_spreadsheet_id = st.text_input("New Spreadsheet ID", key="new_spreadsheet_id")
-    new_sheet_name = st.text_input("New Sheet Name", key="new_sheet_name")
+    st.text_input("New Spreadsheet ID", key="new_spreadsheet_id")
+    st.text_input("New Sheet Name", key="new_sheet_name")
     
-    if st.button("Add Spreadsheet", on_click=add_spreadsheet):
-        pass  # The actual logic is handled in the callback
+    if st.button("Add Spreadsheet", on_click=handle_add_spreadsheet):
+        pass
     
     st.markdown("---")  # Add a separator
     
@@ -405,30 +458,10 @@ def main():
             with col2:
                 st.text_input(f"Sheet Name {i+1}", sheet_name, key=f"sheet_name_{i}")
             with col3:
-                if st.button("🗑️", key=f"delete_{i}"):
-                    spreadsheets_config.pop(i)
-                    if save_user_config(st.session_state.username, {'spreadsheets': spreadsheets_config}):
-                        st.success("Spreadsheet removed successfully!")
-                        st.rerun()
+                if st.button("🗑️", key=f"delete_{i}", on_click=handle_delete_spreadsheet, args=(i,)):
+                    pass
     else:
         st.warning("No spreadsheets configured")
-
-def clear_input_fields():
-    """Clear the input fields"""
-    st.session_state.new_spreadsheet_id = ""
-    st.session_state.new_sheet_name = ""
-
-def add_spreadsheet():
-    """Add a new spreadsheet and clear input fields"""
-    if st.session_state.new_spreadsheet_id and st.session_state.new_sheet_name:
-        spreadsheets_config = load_user_config(st.session_state.username).get('spreadsheets', [])
-        spreadsheets_config.append([st.session_state.new_spreadsheet_id, st.session_state.new_sheet_name])
-        if save_user_config(st.session_state.username, {'spreadsheets': spreadsheets_config}):
-            clear_input_fields()
-            st.success("Spreadsheet added successfully!")
-            st.rerun()
-    else:
-        st.error("Please provide both Spreadsheet ID and Sheet Name")
 
 if __name__ == "__main__":
     main() 
